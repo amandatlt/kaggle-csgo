@@ -8,7 +8,7 @@
 ##############################################################################
 
 ### set paths
-datapath <- "C:/Users/Amanda.Teo/Desktop/Coding for beginners/Data/"
+datapath <- "/Users/amanda/Desktop/Counterstrike"
 
 library(ggplot2)
 
@@ -48,9 +48,18 @@ sum(num_rounds$round) #32752
 #number of teams
 NROW(unique(c(df$att_team, df$vic_team))) #27
 
-
 #number of players
 NROW(unique(c(df$att_id, df$vic_id))) #11,130 unique players
+
+#any missing values
+num_miss <- lapply(df,FUN = function(x) {
+                          length(which(is.na(x)))
+                  })
+
+#translate in game coordinates into positives
+df[,grep("_pos_[xy]", colnames(df))] <- sapply(df[,grep("_pos_[xy]", colnames(df))], FUN = function(x) {
+                                                                                        x + 10000  
+})
 
 #same winning team within a round of a match
 winners_temp <- aggregate(winner_team ~ file_id + round, df,FUN = function (x) {
@@ -70,8 +79,26 @@ weapons$perc_freq <- with(weapons, counter/total_use_wptype) * 100
 
 weapons_table <- reshape(weapons, idvar = c("wp_type"), drop = c("counter", "total_use_wptype"), timevar = c("hitbox"), direction = "wide")
 #seems that likelihood of body part hit not really dependent on the weapon (which makes sense)
+df$counter <- NULL
 
-#top 15 players, the number of attacks, favourite weapon
+#top 15 players by average damge per attack, the number of attacks, favourite weapon
+indiv_damage <- data.frame(
+                  aggregate(hp_dmg ~ att_id, df,FUN = sum),
+                  aggregate(wp ~ att_id, df, FUN = function(x) {
+                        ux <- unique(x)
+                        ux[which.max(tabulate(match(x, ux)))]
+                      }),
+                  aggregate(X ~ att_id, df,FUN = length)
+                  )
+indiv_damage[, grep("att_id.[0-9]", colnames(indiv_damage))] <- list(NULL)
+indiv_damage <- indiv_damage[!indiv_damage$att_id == 0,]
+
+indiv_damage$avg_dmg <- with(indiv_damage, hp_dmg/X)
+indiv_damage <- indiv_damage[order(-indiv_damage$avg_dmg),]
+top15_damage <- indiv_damage[1:15,]
+
+#distribution of average damage
+ggplot(data = indiv_damage, aes(x = avg_dmg)) + geom_histogram(binwidth = 5)
 
 #############################################################################
 #
@@ -98,14 +125,5 @@ ggplot(data = game_winners, aes(map,..count..)) +
       geom_bar(aes(fill = winner_side), position = "Dodge") +
       coord_flip()
   
-#############################################################################
-#
-#  Team analysis
-#
-#############################################################################
-
-# fraction of wins by team
-
-#how to identify who lost?
 
 
