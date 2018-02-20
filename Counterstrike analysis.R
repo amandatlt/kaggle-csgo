@@ -24,7 +24,10 @@ str(df)
 #
 #############################################################################
 
-View(df[, c("att_team", "winner_team")]) # att_team is team that dealt the attack
+# How to view subsets of data
+View(df[, c("att_team", "winner_team")]) 
+
+# How to view counts of of a certain variable
 table(df[, c("winner_team")]) # winner_team is winning team 
 
 # file is unique to each match - but very cumbersome - create new id
@@ -34,18 +37,40 @@ df$file_id <- as.numeric((df$file)) #can use interaction for more than 1 group
 #number of matches
 max(df$file_id) #1297
 
+#average number of rounds within a match
+num_rounds <- aggregate(round ~ file_id, df, FUN = max)
+nrow(num_rounds)
+mean(num_rounds$round) #26 rounds per match
+
+#total number of games(rounds) played
+sum(num_rounds$round) #32752
+
+#number of teams
+NROW(unique(c(df$att_team, df$vic_team))) #27
+
+
 #number of players
 NROW(unique(c(df$att_id, df$vic_id))) #11,130 unique players
 
-#same winning team within a match
-winners_temp <- tapply(df$file, INDEX = list(df$file), FUN = function (x) {
-                                                                x <- as.character(x)
-                                                                as.numeric(as.factor(x))
+#same winning team within a round of a match
+winners_temp <- aggregate(winner_team ~ file_id + round, df,FUN = function (x) {
+                                                                length(unique(x))
                                                         })
-df$winner_numero <- unlist(winners_temp, use.names = FALSE)
+winners_temp[winners_temp$winner_team > 1, ] #check how many rounds per match have more than 1 winner
 rm(winners_temp)
-table(df$winner_numero) #yes,always same winner
-df$winner_numero <- NULL
+
+#most popular weapons
+df$counter <- 1
+
+weapons <- df[, c("hitbox", "wp_type", "counter")]
+weapons <- aggregate(counter ~ hitbox + wp_type, weapons, FUN = sum)
+weapons <- within(weapons, {total_use_wptype = ave(counter, wp_type, FUN = sum)})
+weapons <- with(weapons, weapons[order(wp_type, hitbox),])
+weapons$perc_freq <- with(weapons, counter/total_use_wptype) * 100
+
+weapons_table <- reshape(weapons, idvar = c("wp_type"), drop = c("counter", "total_use_wptype"), timevar = c("hitbox"), direction = "wide")
+#seems that likelihood of body part hit not really dependent on the weapon
+
 
 #############################################################################
 #
@@ -55,20 +80,20 @@ df$winner_numero <- NULL
 
 table(df$map)
 
-# count number of plays within each match
-match_id <- tapply(df$file_id, list(df$file_id), FUN = function (x) {  
+# count number of rounds
+df <- within(df, {game_id = ave(df$X, list(df$file_id, df$round), FUN = function(x) {
   num_rows = NROW(x)
   return(1:num_rows)
-})
-df$match_id <- unlist(match_id, use.names = FALSE)
+})})
+
 
 # most popular map
-ggplot(data = df[df$match_id == 1, ]) + geom_bar(stat="count", aes(map)) + coord_flip() 
+ggplot(data = df[df$game_id == 1, ]) + geom_bar(stat="count", aes(map)) + coord_flip()
 
 # which maps benefit one side more than the other?
-match_outcome <- df[df$match_id == 1, c("winner_side", "map", "winner_team", "file_id")]
+game_winners <- df[df$game_id == 1, c("winner_side", "map")]
 
-ggplot(data = match_outcome, aes(map,..count..)) + 
+ggplot(data = game_winners, aes(map,..count..)) + 
       geom_bar(aes(fill = winner_side), position = "Dodge") +
       coord_flip()
   
@@ -80,8 +105,6 @@ ggplot(data = match_outcome, aes(map,..count..)) +
 
 # fraction of wins by team
 
-#need losses too
+#how to identify who lost?
 
-match_outcome$wins <- 1 
-match_wins <- aggregate(match_outcome$wins, by = list(match_outcome$winner_team), FUN = sum)
 
