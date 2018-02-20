@@ -69,8 +69,9 @@ weapons <- with(weapons, weapons[order(wp_type, hitbox),])
 weapons$perc_freq <- with(weapons, counter/total_use_wptype) * 100
 
 weapons_table <- reshape(weapons, idvar = c("wp_type"), drop = c("counter", "total_use_wptype"), timevar = c("hitbox"), direction = "wide")
-#seems that likelihood of body part hit not really dependent on the weapon
+#seems that likelihood of body part hit not really dependent on the weapon (which makes sense)
 
+#top 15 players, the number of attacks, favourite weapon
 
 #############################################################################
 #
